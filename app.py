@@ -206,7 +206,7 @@ def checkout():
         db.session.delete(cart_item)
     db.session.commit()
 
-    return jsonify({"message": "Checkout successful"})
+    return jsonify({"message": "Checkout successful, cart is now empty"})
 
 if __name__=="__main__":
     app.run(debug=True)
