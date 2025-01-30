@@ -2,7 +2,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user
+from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = "minha_chave_123"
@@ -20,6 +20,7 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), nullable=False, unique=True)
     password = db.Column(db.String(100), nullable=True)
+    cart = db.relationship('CartItem', backref='user', lazy=True)
 
 
 # Produto (id, name, price, description)
@@ -28,6 +29,13 @@ class Product(db.Model):
     name = db.Column(db.String(120), nullable=False)
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text, nullable=True)
+
+
+class CartItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+
 
 # Auntenticação
 @login_manager.user_loader
@@ -127,13 +135,47 @@ def get_products():
         }
 
         product_list.append(product_data)
+
     return jsonify(product_list)
 
 
-# Definição de rota raiz (Pagina Incial) e função que será executada ao requisitar 
-@app.route('/')
-def Hello_Word(): 
-    return 'Hello Word!' 
+# checkout
+
+@app.route('/api/cart/add/<int:product_id>', methods=['POST'])
+@login_required
+def add_to_cart(product_id): 
+    # Usuário
+    user = User.query.get(int(current_user.id))
+    # Produto 
+    product = Product.query.get(product_id)
+
+    if user and product: 
+
+        cart_item = CartItem(user_id=user.id, product_id=product.id)
+        db.session.add(cart_item)
+        db.session.commit()
+
+        return jsonify({"message": "Item added to cart successfully"})
+    return jsonify({"message": "Failed to add item to the cart"}), 400
+
+
+@app.route('/api/cart/remove/<int:product_id>', methods=['DELETE'])
+@login_required
+def remove_from_cart(product_id):
+        
+    cart_item = CartItem.query.filter_by(user_id=current_user.id , product_id=product_id).first()
+
+    if cart_item:
+
+        db.session.delete(cart_item)
+        db.session.commit()
+        
+        return jsonify({"message": "Item removed from the cart successfully"})
+    return jsonify({"message": "Failed to remove item from the cart"}), 400
+
+
+@
+
 
 if __name__=="__main__":
     app.run(debug=True)
